@@ -1,0 +1,7 @@
+{
+  "allowedRepositories": ["your-org/your-gitcode-mirror"],
+  "allowedSourcePrefixes": ["https://downloads.example.com/releases/"],
+  "fileNamePattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$",
+  "maxFileBytes": 2147483648,
+  "maxDeadlineSeconds": 7200
+}
