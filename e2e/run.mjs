@@ -34,13 +34,19 @@ try {
   for (const scenario of scenarios) {
     if (only.length > 0 && !only.includes(scenario.id)) continue;
     env.mock.reset();
+    env.restoreHost();
     env.setHostConfig({});
+    env.leaks = [];
+    if (!env.sshd || env.sshd.exitCode !== null) { env.sshd = null; await env.startSshd(); }
     const started = Date.now();
     const saved = {};
     const t = { save: (name, value) => { saved[name] = value; } };
     let error;
     try {
       await scenario.run(env, t);
+      const left = readdirSync(env.hostWork);
+      if (left.length > 0) env.leaks.push(`host work directory not cleaned: ${left.join(', ')}`);
+      if (env.leaks.length > 0) throw new Error(env.leaks.join('; '));
     } catch (e) {
       error = e;
     }

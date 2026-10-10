@@ -16,6 +16,7 @@ export class Mock {
     this.dataDir = dataDir;
     this.token = token;
     this.counter = 0;
+    this.activeSockets = new Set();
     this.reset();
   }
 
@@ -26,7 +27,7 @@ export class Mock {
     this.sourceFiles = new Map();
     this.requests = [];
     this.faults = {};
-    this.activeSockets = new Set();
+
   }
 
   count(kind) {

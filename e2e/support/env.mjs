@@ -1,7 +1,7 @@
 // The test environment: private CA, mock servers, a throw-away sshd with the
 // real forced-command installation, and a way to run the Action like a runner.
 import { execFileSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { userInfo } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -103,6 +103,7 @@ export class Env {
     writeFileSync(file, text ?? readFileSync(join(ROOT, 'lib/mirror-core.mjs')));
     chmodSync(file, 0o444);
     chmodSync(this.hostDir, 0o555);
+    this.coreSwapped = text !== undefined;
   }
 
   async startSshd() {
@@ -116,10 +117,8 @@ export class Env {
     }
     this.sshPort ??= await freePort();
     const publicKey = readFileSync(join(dir, 'client.pub'), 'utf8').trim();
-    const prefix = `env NODE_OPTIONS='--import ${this.preload}' NODE_EXTRA_CA_CERTS=${this.caFile} MOCK_PORT=${this.mock.port} `;
-    const line = this.authorizedTemplate.replace('command="', `command="${prefix}`).replace('<ssh-ed25519 public key>', publicKey);
-    // the installer prints the node it found; run the host side with the intended one
-    writeFileSync(join(dir, 'authorized_keys'), `${line}\n`, { mode: 0o600 });
+    this.publicKey = publicKey;
+    this.setForcedCommand(null);
     writeFileSync(join(dir, 'sshd_config'), [
       `Port ${this.sshPort}`, 'ListenAddress 127.0.0.1', `HostKey ${join(dir, 'hostkey')}`,
       `AuthorizedKeysFile ${join(dir, 'authorized_keys')}`, `PidFile ${join(dir, 'sshd.pid')}`,
@@ -128,6 +127,7 @@ export class Env {
     ].join('\n'));
     this.sshd = spawn('/usr/sbin/sshd', ['-D', '-e', '-f', join(dir, 'sshd_config')], { stdio: ['ignore', 'ignore', 'pipe'] });
     this.sshdLog = '';
+    this.sshd.once('exit', (code, signal) => { this.sshdExit = { code, signal }; });
     this.sshd.stderr.on('data', (d) => { this.sshdLog += d; });
     await new Promise((resolveWait, reject) => {
       const deadline = Date.now() + 10_000;
@@ -144,10 +144,57 @@ export class Env {
     this.otherKey = readFileSync(join(dir, 'other'), 'utf8');
   }
 
+  // The default is the line host/install.sh prints, plus the environment that points the host process at the test CA and mock.
+  // A custom command stands in for the host in the scenarios that need a different or instrumented one.
+  setForcedCommand(command) {
+    const prefix = `env NODE_OPTIONS='--import ${this.preload}' NODE_EXTRA_CA_CERTS=${this.caFile} MOCK_PORT=${this.mock.port} `;
+    const line = command
+      ? `restrict,command="${command.replace(/"/g, '\\"')}" ${this.publicKey}`
+      : this.authorizedTemplate.replace('command="', `command="${prefix}`).replace('<ssh-ed25519 public key>', this.publicKey);
+    writeFileSync(this.path('sshd/authorized_keys'), `${line}\n`, { mode: 0o600 });
+  }
+
+  // The default forced command, optionally behind a wrapper (for example /usr/bin/time).
+  defaultHostCommand(wrapper = '') {
+    const m = /^restrict,command="([^"]*)"/.exec(this.authorizedTemplate);
+    const [nodeBin, ...rest] = m[1].split(' ');
+    const env = `env NODE_OPTIONS='--import ${this.preload}' NODE_EXTRA_CA_CERTS=${this.caFile} MOCK_PORT=${this.mock.port}`;
+    return `${wrapper}${env} ${nodeBin} ${rest.join(' ')}`;
+  }
+
+  // Talks to the host the way the Action does, without the Action: raw bytes on stdin.
+  rawSsh(stdin, { key = 'client', knownHosts = this.knownHosts, args = [], command } = {}) {
+    const dir = this.path('rawssh');
+    mkdirSync(dir, { recursive: true });
+    const hosts = join(dir, 'known_hosts');
+    writeFileSync(hosts, knownHosts);
+    const sshArgs = ['-F', '/dev/null', '-i', this.path('sshd', key), '-o', 'IdentitiesOnly=yes', '-o', 'IdentityAgent=none', '-o', 'BatchMode=yes',
+      '-o', 'StrictHostKeyChecking=yes', '-o', `UserKnownHostsFile=${hosts}`, '-o', 'GlobalKnownHostsFile=/dev/null', '-o', 'ConnectTimeout=10',
+      ...args, '-p', String(this.sshPort), '-l', userInfo().username, '127.0.0.1', ...(command ? [command] : [])];
+    return new Promise((done) => {
+      const child = spawn('/usr/bin/ssh', sshArgs, { stdio: ['pipe', 'pipe', 'pipe'] });
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (d) => { stdout += d; });
+      child.stderr.on('data', (d) => { stderr += d; });
+      child.stdin.on('error', () => {});
+      child.stdin.end(stdin);
+      const timer = setTimeout(() => child.kill('SIGKILL'), 60_000);
+      child.on('close', (code) => { clearTimeout(timer); done({ code, stdout, stderr }); });
+    });
+  }
+
+  restoreHost() {
+    this.setForcedCommand(null);
+    if (this.coreSwapped) this.swapInstalledCore();
+    this.coreSwapped = false;
+  }
+
   async stopSshd() {
     if (!this.sshd) return;
     const child = this.sshd;
     this.sshd = null;
+    if (child.exitCode !== null || child.signalCode !== null) return;
     await new Promise((done) => {
       child.once('exit', done);
       child.kill('SIGTERM');
@@ -173,7 +220,7 @@ export class Env {
   }
 
   // Runs dist/index.mjs the way the GitHub runner does.
-  async runAction(inputs, { env = {}, timeoutMs = 600_000, wrapSsh = true } = {}) {
+  async runAction(inputs, { env = {}, timeoutMs = 600_000, wrapSsh = true, measure = false } = {}) {
     const runDir = mkdtempSync(join(this.root, 'run-'));
     const files = { out: join(runDir, 'output'), summary: join(runDir, 'summary.md'), temp: join(runDir, 'temp'), argv: join(runDir, 'ssh-argv.log') };
     mkdirSync(files.temp);
@@ -203,7 +250,10 @@ export class Env {
       if (value !== undefined) childEnv[`INPUT_${name.toUpperCase()}`] = String(value);
     }
     const started = Date.now();
-    const child = spawn(this.runnerNode, [join(ROOT, 'dist/index.mjs')], { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], cwd: runDir });
+    const entry = [join(ROOT, 'dist/index.mjs')];
+    const child = measure
+      ? spawn('/usr/bin/time', ['-l', '-o', join(runDir, 'time.txt'), this.runnerNode, ...entry], { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], cwd: runDir })
+      : spawn(this.runnerNode, entry, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], cwd: runDir });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', (d) => { stdout += d; });
@@ -212,10 +262,13 @@ export class Env {
     const code = await new Promise((done) => child.on('close', done));
     clearTimeout(timer);
     const outputs = parseOutputs(readFileSync(files.out, 'utf8'));
+    const left = readdirSync(files.temp);
+    if (left.length > 0) (this.leaks ??= []).push(`runner temp not cleaned: ${left.join(', ')}`);
     return {
       code, stdout, stderr, outputs, runDir, tempDir: files.temp, durationMs: Date.now() - started,
       summary: readFileSync(files.summary, 'utf8'),
       sshArgv: readFileSync(files.argv, 'utf8'),
+      maxRssBytes: measure ? Number(/(\d+)\s+maximum resident set size/.exec(readFileSync(join(runDir, 'time.txt'), 'utf8'))?.[1]) : undefined,
       receipt: outputs.receipt ? JSON.parse(outputs.receipt) : null,
     };
   }

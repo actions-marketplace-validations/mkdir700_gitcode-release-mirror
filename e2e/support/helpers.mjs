@@ -43,3 +43,6 @@ export async function blobSha(blob) {
 
 export const sha256Text = (text) => createHash('sha256').update(text).digest('hex');
 export { writeFileSync };
+
+// `::add-mask::` lines are how the Action asks the runner to hide a value; they are not output.
+export const visible = (text) => text.split('\n').filter((l) => !l.startsWith('::add-mask::')).join('\n');
