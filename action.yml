@@ -1,6 +1,6 @@
 name: GitCode Release Mirror
 description: Mirror release assets to a GitCode Release, directly or through an SSH host in mainland China, and verify them byte for byte.
-author: UniClipboard
+author: mkdir700
 branding:
   icon: upload-cloud
   color: blue

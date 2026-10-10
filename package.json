@@ -1,6 +1,6 @@
 {
   "name": "gitcode-release-mirror",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Mirror release assets to a GitCode Release, directly or through an SSH host, with SHA-256 verification.",
   "license": "MIT",
   "private": true,

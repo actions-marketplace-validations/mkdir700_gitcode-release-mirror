@@ -21,7 +21,7 @@ installed files.
 From a checkout of the release you will pin in your workflows:
 
 ```sh
-git clone https://github.com/UniClipboard/gitcode-release-mirror.git
+git clone https://github.com/mkdir700/gitcode-release-mirror.git
 cd gitcode-release-mirror && git checkout <the same full commit SHA the workflows use>
 sh host/install.sh        # --prefix /opt/gitcode-release-mirror --config-dir /etc/gitcode-release-mirror
 ```

@@ -38,7 +38,7 @@ jobs:
     environment: mirror            # keep the secrets in an environment limited to trusted branches
     concurrency: gitcode-mirror-${{ inputs.tag }}
     steps:
-      - uses: UniClipboard/gitcode-release-mirror@<full commit SHA>  # v1.0.0
+      - uses: mkdir700/gitcode-release-mirror@<full commit SHA>  # v1.0.0
         with:
           transport: ssh
           repository: your-org/your-gitcode-mirror     # must exist and have a commit on its default branch
@@ -72,7 +72,7 @@ widen it.
 ## Direct transport
 
 ```yaml
-- uses: UniClipboard/gitcode-release-mirror@<full commit SHA>  # v1.0.0
+- uses: mkdir700/gitcode-release-mirror@<full commit SHA>  # v1.0.0
   with:
     transport: direct
     repository: your-org/your-gitcode-mirror
