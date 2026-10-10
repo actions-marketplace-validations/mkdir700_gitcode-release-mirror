@@ -1,0 +1,21 @@
+{
+  "name": "gitcode-release-mirror",
+  "version": "0.1.0",
+  "description": "Mirror release assets to a GitCode Release, directly or through an SSH host, with SHA-256 verification.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check-dist": "node scripts/build.mjs --check",
+    "e2e": "node e2e/run.mjs"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1",
+    "@actions/glob": "0.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

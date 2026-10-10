@@ -1,0 +1,69 @@
+name: GitCode Release Mirror
+description: Mirror release assets to a GitCode Release, directly or through an SSH host in mainland China, and verify them byte for byte.
+author: UniClipboard
+branding:
+  icon: upload-cloud
+  color: blue
+inputs:
+  transport:
+    description: '"ssh" uploads from an SSH host that fetches the files itself; "direct" uploads from the runner.'
+    required: true
+  repository:
+    description: GitCode repository as owner/repo. It must already exist and have a commit on its default branch.
+    required: true
+  tag:
+    description: Release tag to create or reuse on GitCode.
+    required: true
+  token:
+    description: GitCode access token with release write access to the repository. Pass it as a secret.
+    required: true
+  files:
+    description: 'transport "direct" only: local files, one path or glob per line. Symbolic links are not followed.'
+    required: false
+  sources:
+    description: 'transport "ssh" only: JSON array of {"url": "...", "sha256": "..."}. The host downloads each url and checks the digest.'
+    required: false
+  ssh-host:
+    description: 'transport "ssh": host name or address of the mirror host.'
+    required: false
+  ssh-user:
+    description: 'transport "ssh": the account whose key is bound to the forced command.'
+    required: false
+  ssh-port:
+    description: 'transport "ssh": port.'
+    required: false
+    default: '22'
+  ssh-key:
+    description: 'transport "ssh": private key for that account. Pass it as a secret.'
+    required: false
+  ssh-known-hosts:
+    description: 'transport "ssh": the host public keys in known_hosts format. Host keys are always verified.'
+    required: false
+  prerelease:
+    description: Create a newly created GitCode release as a pre-release.
+    required: false
+    default: 'false'
+  target-commitish:
+    description: Branch used when GitCode has to create the tag.
+    required: false
+    default: main
+  api-base:
+    description: GitCode API address; https://api.gitcode.com/api/v5 or https://api.atomgit.com/api/v5.
+    required: false
+    default: https://api.gitcode.com/api/v5
+  stall-timeout:
+    description: Seconds without data before a transfer is abandoned and retried.
+    required: false
+    default: '120'
+  deadline:
+    description: Seconds after which the whole run stops and reports what it has.
+    required: false
+    default: '2400'
+outputs:
+  receipt:
+    description: JSON receipt with one entry per file (status mirrored, reused or failed, size, sha256, download address, failure stage).
+  failed-count:
+    description: Number of files that were not mirrored.
+runs:
+  using: node24
+  main: dist/index.mjs
