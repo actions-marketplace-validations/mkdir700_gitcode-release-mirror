@@ -31,7 +31,7 @@ and listing are external steps that need the repository owner.
 
 | Field | Proposal |
 | --- | --- |
-| Repository | `UniClipboard/gitcode-release-mirror`, public (checked 2026-10-09 by the research thread: no repository of that name in the organisation or in a GitHub search) |
+| Repository | `UniClipboard/gitcode-release-mirror`, public (checked 2026-10-09: no repository of that name in the organisation or in a GitHub search) |
 | Action `name` | `GitCode Release Mirror` (alternative: `Mirror Release Assets to GitCode`). GitHub requires the name to be unique across Marketplace actions, users/organisations, categories and features. **Uniqueness has not been checked**; search the Marketplace before the first release. |
 | Description | Mirror release assets to a GitCode Release, directly or through an SSH host in mainland China, and verify them byte for byte. (the `description` in `action.yml`; GitHub shows it in search) |
 | Branding | icon `upload-cloud`, colour `blue` (Feather icon set, as the metadata page requires) |

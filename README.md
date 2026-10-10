@@ -150,13 +150,12 @@ the GitCode service is the real one; treat it as your build log, not an attestat
   Action on Node v24.21.0 and the host side on Node v22.22.1.
 * Not available to this Action by design: GitCode deletion, replacing assets,
   and anything specific to a product (registering the mirror elsewhere is done by
-  a later step of your workflow, see [docs/uni-migration.md](docs/uni-migration.md)).
+  a later step of your workflow that reads the `receipt` output).
 
 ## Not verified
 
 These were not checked against the real service, because that needs a GitCode
-test repository and token that the author of this change was not authorised to
-use:
+test repository and token that were not available when this was written:
 
 * a real upload and read-back against `api.gitcode.com`; the end-to-end suite
   uses a mock written from the public API pages;
@@ -164,9 +163,9 @@ use:
   as `Authorization: Bearer` instead of the query parameter the Action uses
   today (the query form is the documented one);
 * `api.atomgit.com` as an alternative base;
-* attachment size limits above the 123 MB that the Uni workflows already uploaded;
+* attachment size limits above 123 MB (the largest file seen uploaded by the project this comes from);
 * behaviour on GitHub-hosted runners, any Windows runner, and the real
-  Shanghai host.
+  production SSH host.
 
 See [docs/e2e-scenarios.md](docs/e2e-scenarios.md) for what is covered and how
 to run it (`npm run e2e`).

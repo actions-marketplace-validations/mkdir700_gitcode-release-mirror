@@ -14,7 +14,7 @@ streamed request body in memory.
 
 | Item | Value |
 | --- | --- |
-| Source repository | `/Users/mark/MyProjects/uni/mobile` (UniClip Mobile) |
+| Source repository | <https://github.com/UniClipboard/UniClip> (UniClip Mobile) |
 | Source file | `scripts/mirror-android-apk-to-gitcode.mjs` |
 | Source licence | MIT (`LICENSE`: Copyright (c) 2026 JericX, Copyright (c) 2026 mkdir700 (UniClip)) |
 | Repository HEAD when read | `0678dfbbc68cf96080922b6294fd3046a0d14405` |
@@ -25,7 +25,7 @@ The MIT notice of the source is carried in `LICENSE` as required.
 
 ## Code that was read but not copied
 
-The Uni Desktop repository contains a similar script
+The UniClipboard Desktop repository (<https://github.com/UniClipboard/UniClipboard>) contains a similar script
 (`scripts/mirror-desktop-installers-to-gitcode.mjs`, blob
 `4a07117a96155afcec5f96f6702982c0c919df7b` at Desktop HEAD
 `101ffb38e83631b0763556ae4432c3554bd58db8`). Desktop is licensed

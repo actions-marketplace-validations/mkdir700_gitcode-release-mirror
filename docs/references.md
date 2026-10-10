@@ -17,7 +17,7 @@ anything not listed here is not verified.
   Agreement; choose a category on the release.
 * Secure use, <https://docs.github.com/en/actions/reference/security/secure-use>:
   a full commit SHA is the only immutable way to pin an action.
-* Workflow commands / secrets, from the earlier research: values registered as
+* Workflow commands / secrets, from earlier work: values registered as
   secrets are masked; a masked value cannot be set as an output.
 
 ## GitCode (docs.gitcode.com)
@@ -33,7 +33,7 @@ anything not listed here is not verified.
   returns `url` (use with PUT) and `headers` with exactly `x-obs-meta-project-id`,
   `x-obs-acl`, `x-obs-callback`, `Content-Type`. The code forwards only `x-obs-*`
   and `Content-Type` from that object.
-* From the earlier research (not re-read today): attachment download endpoint
+* Not re-read on that date: attachment download endpoint
   `GET .../releases/:tag/attach_files/:file_name/download`; attachment delete
   (never used here); rate limit 400 per minute and 4000 per hour.
 
@@ -45,14 +45,10 @@ equivalent to `api.gitcode.com`; attachment size and count limits; the lifetime
 of upload URLs; what `x-obs-callback` does exactly and how long the registration
 can take; whether `release_status: latest` demotes another release.
 
-## Corrections to the earlier research
+## Design notes that follow from the above
 
-* The research said the Action should send the token as a header by default.
-  Only the `access_token` query parameter is documented on the release pages and
-  it is the form used successfully in production runs of the Uni workflows, so
-  the Action uses the query parameter. API calls never follow redirects, so the
-  token cannot be forwarded to another host. Header authentication is an open
-  experiment (see README, "Not verified").
-* The research proposed `fileNamePattern`-style fields as Action inputs; the
-  file-name policy lives in the host config instead, because it is a security
-  decision of the host owner, not of the workflow author.
+* The token is sent as the documented `access_token` query parameter; API calls
+  never follow redirects, so it cannot be forwarded to another host. Header
+  authentication is an open experiment (see README, "Not verified").
+* The file-name policy lives in the host config, not in Action inputs, because it
+  is a security decision of the host owner rather than of the workflow author.

@@ -107,7 +107,7 @@ asserts that the mock servers saw zero requests.
 ## Evidence the suite produces
 
 `npm run e2e` writes into `artifacts/<utc-run-id>/` (kept out of git, copied to
-the thread library):
+a directory of your choice):
 
 * `manifest.json`: source commit, `git status` cleanliness, Node versions,
   OpenSSH version, OS, command line, protocol and scope statement
@@ -133,7 +133,7 @@ started through its own process handle and removes its temp tree.
 * Node 22 as the host and Node 24 as the runner were exercised; Node 22 as the
   runner and Node 24 as the host were not.
 * The older `no-pty,...` form of `authorized_keys` options is not tested.
-* `restrict` was tested with the OpenSSH shipped with macOS; the Shanghai
+* `restrict` was tested with the OpenSSH shipped with macOS; a production
   host's OpenSSH build was not.
 
 ## Not covered, on purpose
@@ -141,5 +141,5 @@ started through its own process handle and removes its temp tree.
 Real GitCode behaviour (token scopes, `Authorization: Bearer`, `atomgit.com`
 equivalence, attachment limits, the real callback), the real GitHub runner
 environment, Windows runners, throughput from GitHub-hosted runners to China,
-and the production Shanghai host. Each of these is listed as pending in the
+and a production host. Each of these is listed as pending in the
 README and in the review report.
