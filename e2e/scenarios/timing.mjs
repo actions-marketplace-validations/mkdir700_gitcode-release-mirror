@@ -35,6 +35,21 @@ export default [
     },
   },
   {
+    // A transfer may take much longer than the stall timeout as long as bytes keep arriving.
+    id: 'slow-but-steady-transfers',
+    async run(env, t) {
+      const src = await one(env, 2 * MiB);
+      env.mock.faults.slow = 500; // a pause after every 128 KiB: about 8 s per direction, stall timeout is 3 s
+      const result = await env.runAction(env.sshInputs({ sources: src.input, 'stall-timeout': '3', deadline: '120' }));
+      t.save('receipt', result.receipt);
+      assert.equal(result.code, 0, result.stdout + result.stderr);
+      assert.equal(result.receipt.files[0].status, 'mirrored');
+      assert.equal(env.mock.count('put'), 1, 'steady progress is never mistaken for a stall');
+      assert.equal(env.mock.count('source'), 1);
+      assert.ok(result.durationMs > 12_000, `the run must outlast several stall timeouts, took ${result.durationMs} ms`);
+    },
+  },
+  {
     id: 'body-sent-answer-late',
     async run(env, t) {
       const src = await one(env, 6 * MiB);

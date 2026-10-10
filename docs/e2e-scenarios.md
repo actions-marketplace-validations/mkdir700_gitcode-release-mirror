@@ -49,6 +49,7 @@ IDs are stable names used by the suite and the evidence index.
 | `upload-stall-retry` | The first PUT stops reading mid-body | Stall watchdog aborts within the stall timeout; second attempt asks for a fresh `upload_url`; asset mirrored; receipt `attempts: 2` |
 | `upload-stall-forever` | Every PUT stalls | Failed at stage `upload` after the bounded retries, within the total deadline |
 | `deadline` | Registration never completes and polling is slow | Run ends at the deadline with a failed receipt (not a killed job) |
+| `slow-but-steady-transfers` | The source, the upload and the read-back each trickle (pauses after every 128 KiB) so every transfer lasts far longer than the 3 s stall timeout | Success with exactly one PUT and one source download: progress is never mistaken for a stall, and no fixed per-transfer time limit exists |
 | `body-sent-answer-late` | The whole body is received but the answer comes after longer than the stall timeout | One PUT only: waiting for the answer is not a stall |
 | `answer-lost-after-registration` | The asset is registered and the connection is then dropped | The retry path finds the asset, verifies it and does not upload again (one PUT) |
 | `callback-late` | The asset appears on the release only a few seconds after the PUT | Polling finds it; mirrored |
@@ -76,6 +77,7 @@ asserts that the mock servers saw zero requests.
 | `host-bad-urls` | Not https, outside the allow-listed prefixes, user-info, explicit port, fragment, `..` segments, `%2f` in the path |
 | `host-bad-target` | Repository not in the allow-list, malformed repository, bad tag, bad branch, API base not `api.gitcode.com`/`api.atomgit.com` |
 | `host-bad-request` | Not JSON, two lines, trailing data, unknown fields, wrong types, oversized body, duplicate names, bad digests, unsupported version |
+| `host-request-timeout` | A client authenticates and never finishes its request line | The host gives up after 30 s with a rejection and no network access |
 | `host-injection` | Shell metacharacters and `$(...)` in tag, names, URLs and SSH settings; canary file must never appear |
 | `ssh-option-injection` | `ssh-host`/`ssh-user`/`ssh-port` shaped like ssh options or shell text | Rejected before `ssh` starts (the PATH shim records no invocation) and a canary file never appears |
 | `forced-command-only` | Client asks for a shell, another command, a pty, port forwarding, agent forwarding | Only the wrapper runs; a non-empty `SSH_ORIGINAL_COMMAND` is rejected; nothing else executes |

@@ -1,5 +1,5 @@
 // End-to-end suite. Usage: node e2e/run.mjs [scenario-id ...]
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { release } from 'node:os';
@@ -14,6 +14,10 @@ const out = (cmd, args) => execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8'
 const runnerNode = process.env.E2E_RUNNER_NODE || out('npx', ['-y', 'node@24', '-p', 'process.execPath']);
 const hostNode = process.env.E2E_HOST_NODE || process.execPath;
 const version = (bin) => out(bin, ['--version']);
+const stderrOf = (cmd, args) => {
+  const r = spawnSync(cmd, args, { encoding: 'utf8' });
+  return `${r.stdout}${r.stderr}`.split('\n').find((l) => /OpenSSH/.test(l))?.trim() ?? 'unknown';
+};
 
 const scenarioFiles = readdirSync(join(ROOT, 'e2e/scenarios')).filter((f) => f.endsWith('.mjs')).sort();
 const scenarios = [];
@@ -81,7 +85,7 @@ const manifest = {
   sourceCommit: commit,
   workingTreeClean: clean,
   coreSha256: coreSha,
-  versions: { runnerNode: version(runnerNode), hostNode: version(hostNode), ssh: execFileSync('ssh', ['-V'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() || 'see stderr', os: `${process.platform} ${release()}` },
+  versions: { runnerNode: version(runnerNode), hostNode: version(hostNode), ssh: stderrOf('ssh', ['-V']), sshd: stderrOf('/usr/sbin/sshd', ['-V']), os: `${process.platform} ${release()}` },
   scope: {
     gitcode: 'mock server written from the public API pages',
     realGitCodeProof: false,
@@ -89,24 +93,28 @@ const manifest = {
     network: 'real TLS on loopback with a test CA; only the destination of port 443 is redirected',
     ssh: 'real OpenSSH client and sshd on loopback, forced command installed by host/install.sh',
   },
+  verify: 'cd <evidence dir> && shasum -a 256 -c SHA256SUMS; cd <repository root at sourceCommit> && shasum -a 256 -c <evidence dir>/SHA256SUMS.source',
   scenarios: results,
   passed: results.filter((r) => r.passed).length,
   failed,
 };
 writeFileSync(join(artifactDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
-const lines = [];
+// Evidence files are listed relative to the evidence directory; the files that
+// were tested are listed relative to the repository root, so each list can be
+// checked from its own base directory.
+const sumLine = (base, full) => `${createHash('sha256').update(readFileSync(full)).digest('hex')}  ${relative(base, full)}`;
+const evidence = [];
 const walk = (dir) => {
   for (const name of readdirSync(dir).sort()) {
     const full = join(dir, name);
     if (statSync(full).isDirectory()) walk(full);
-    else if (name !== 'SHA256SUMS') lines.push(`${createHash('sha256').update(readFileSync(full)).digest('hex')}  ${relative(ROOT, full)}`);
+    else if (!name.startsWith('SHA256SUMS')) evidence.push(sumLine(artifactDir, full));
   }
 };
 walk(artifactDir);
-for (const file of ['dist/index.mjs', 'lib/mirror-core.mjs', 'lib/host.mjs', 'action.yml']) {
-  lines.push(`${createHash('sha256').update(readFileSync(join(ROOT, file))).digest('hex')}  ${file}`);
-}
-writeFileSync(join(artifactDir, 'SHA256SUMS'), `${lines.join('\n')}\n`);
+writeFileSync(join(artifactDir, 'SHA256SUMS'), `${evidence.join('\n')}\n`);
+const tested = ['dist/index.mjs', 'dist/THIRD_PARTY_LICENSES.md', 'lib/mirror-core.mjs', 'lib/host.mjs', 'action.yml', 'host/install.sh'].map((f) => sumLine(ROOT, join(ROOT, f)));
+writeFileSync(join(artifactDir, 'SHA256SUMS.source'), `${tested.join('\n')}\n`);
 console.log(`\n${manifest.passed} passed, ${failed} failed; evidence in ${relative(ROOT, artifactDir)}`);
 process.exit(failed ? 1 : 0);

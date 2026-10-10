@@ -21,21 +21,44 @@ request; a host with a different core refuses to run.
 ## SSH transport
 
 ```yaml
-- uses: UniClipboard/gitcode-release-mirror@<full commit SHA>  # v1.0.0
-  with:
-    transport: ssh
-    repository: your-org/your-gitcode-mirror     # must exist and have a commit on its default branch
-    tag: ${{ github.event.release.tag_name }}
-    token: ${{ secrets.GITCODE_TOKEN }}
-    ssh-host: mirror.example.com
-    ssh-user: gitcode-mirror
-    ssh-key: ${{ secrets.MIRROR_SSH_KEY }}
-    ssh-known-hosts: ${{ vars.MIRROR_SSH_KNOWN_HOSTS }}
-    sources: |
-      [
-        {"url": "https://downloads.example.com/releases/v1.2.3/app-1.2.3.apk", "sha256": "<64 hex characters>"}
-      ]
+name: mirror-to-gitcode
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    environment: mirror            # keep the secrets in an environment limited to trusted branches
+    concurrency: gitcode-mirror-${{ inputs.tag }}
+    steps:
+      - uses: UniClipboard/gitcode-release-mirror@<full commit SHA>  # v1.0.0
+        with:
+          transport: ssh
+          repository: your-org/your-gitcode-mirror     # must exist and have a commit on its default branch
+          tag: ${{ inputs.tag }}
+          token: ${{ secrets.GITCODE_TOKEN }}
+          ssh-host: mirror.example.com
+          ssh-user: gitcode-mirror
+          ssh-key: ${{ secrets.MIRROR_SSH_KEY }}
+          ssh-known-hosts: ${{ vars.MIRROR_SSH_KNOWN_HOSTS }}
+          sources: |
+            [
+              {"url": "https://downloads.example.com/releases/v1.2.3/app-1.2.3.apk", "sha256": "<64 hex characters>"}
+            ]
 ```
+
+Trigger note: a release or tag created with the workflow's own `GITHUB_TOKEN`
+does not start other workflows (GitHub's documented rule), so `on: release:
+published` will not fire for releases made by another workflow. Start the mirror
+with `workflow_dispatch`, `workflow_call` or `repository_dispatch` from the
+release workflow, as above. Never expose the secrets to pull requests from forks.
 
 Each source is a public https URL **and** the SHA-256 it must have. The host
 downloads it, refuses it if the digest differs, and only then touches GitCode.

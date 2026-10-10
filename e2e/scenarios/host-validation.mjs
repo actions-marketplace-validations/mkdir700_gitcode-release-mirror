@@ -115,6 +115,17 @@ export default [
     },
   },
   {
+    id: 'host-request-timeout',
+    async run(env) {
+      const started = Date.now();
+      const result = await env.rawSsh('{"version":1', { keepOpen: true });
+      assert.equal(result.code, 2, result.stdout + result.stderr);
+      assert.match(result.stdout, /not completed within 30 seconds/);
+      assert.ok(Date.now() - started < 45_000);
+      assert.equal(env.mock.requests.length, 0);
+    },
+  },
+  {
     id: 'host-injection',
     async run(env) {
       const canary = env.path('CANARY');

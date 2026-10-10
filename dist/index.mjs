@@ -22293,6 +22293,7 @@ async function viaSsh({ request, secrets }) {
     const child = spawn("ssh", args, { stdio: ["pipe", "pipe", "pipe"] });
     const killer = setTimeout(() => child.kill("SIGKILL"), (request.deadlineSeconds + 120) * 1e3);
     let receipt = null;
+    let rejection = null;
     const lineReader = (prefix, handler) => {
       let buffer = "";
       return (chunk) => {
@@ -22306,6 +22307,7 @@ async function viaSsh({ request, secrets }) {
     };
     const show = (line, prefix) => info(`${prefix}${redact(line, secrets)}`);
     child.stdout.on("data", lineReader("host| ", (line, prefix) => {
+      if (line.startsWith("mirror-host rejected:")) rejection = line.slice("mirror-host rejected:".length).trim().slice(0, 300);
       if (line.startsWith("::receipt::")) {
         try {
           receipt = JSON.parse(line.slice("::receipt::".length));
@@ -22327,7 +22329,7 @@ async function viaSsh({ request, secrets }) {
 `);
     const { code, signal } = await done;
     clearTimeout(killer);
-    return { receipt, code, signal };
+    return { receipt, code, signal, rejection };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -22337,7 +22339,12 @@ function checkHostReceipt(reported, declared, outcome) {
   return declared.map((file) => {
     const entry = byName.get(file.name);
     if (!entry) {
-      const reason = outcome.signal || outcome.code !== 0 ? `the host did not report this file (ssh ended with ${outcome.signal ?? `status ${outcome.code}`}); the outcome is unknown and a repeat is safe` : "the host did not report this file";
+      let reason = "the host did not report this file";
+      if (outcome.code === 2 && outcome.rejection) {
+        reason = `the host rejected the request before doing anything: ${outcome.rejection}; repeating will not help until the host or the inputs are fixed`;
+      } else if (outcome.signal || outcome.code !== 0) {
+        reason = `the host did not report this file (ssh ended with ${outcome.signal ?? `status ${outcome.code}`}); the outcome is unknown, and repeating is safe because the run is idempotent`;
+      }
       return { name: file.name, sha256: file.sha256, status: "failed", stage: "host", error: reason };
     }
     if ((entry.status === "mirrored" || entry.status === "reused") && entry.sha256 !== file.sha256) {

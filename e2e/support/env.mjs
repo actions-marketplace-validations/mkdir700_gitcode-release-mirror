@@ -163,7 +163,7 @@ export class Env {
   }
 
   // Talks to the host the way the Action does, without the Action: raw bytes on stdin.
-  rawSsh(stdin, { key = 'client', knownHosts = this.knownHosts, args = [], command } = {}) {
+  rawSsh(stdin, { key = 'client', knownHosts = this.knownHosts, args = [], command, keepOpen = false } = {}) {
     const dir = this.path('rawssh');
     mkdirSync(dir, { recursive: true });
     const hosts = join(dir, 'known_hosts');
@@ -178,7 +178,8 @@ export class Env {
       child.stdout.on('data', (d) => { stdout += d; });
       child.stderr.on('data', (d) => { stderr += d; });
       child.stdin.on('error', () => {});
-      child.stdin.end(stdin);
+      if (keepOpen) child.stdin.write(stdin);
+      else child.stdin.end(stdin);
       const timer = setTimeout(() => child.kill('SIGKILL'), 60_000);
       child.on('close', (code) => { clearTimeout(timer); done({ code, stdout, stderr }); });
     });

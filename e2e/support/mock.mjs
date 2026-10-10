@@ -233,7 +233,8 @@ export class Mock {
     for await (const chunk of stream) {
       if (corrupt && first) chunk[0] ^= 0xff;
       first = false;
-      if (!res.write(chunk)) await new Promise((r) => res.once('drain', r));
+      if (this.faults.slow) await this.trickle(res, chunk);
+      else if (!res.write(chunk)) await new Promise((r) => res.once('drain', r));
     }
     res.end();
   }
@@ -264,9 +265,16 @@ export class Mock {
     const file = join(this.dataDir, `${id}.bin`);
     const hash = createHash('sha256');
     let size = 0;
+    let sincePause = 0;
     req.on('data', (chunk) => {
       hash.update(chunk);
       size += chunk.length;
+      sincePause += chunk.length;
+      if (this.faults.slow && sincePause >= 128 * 1024) {
+        sincePause = 0;
+        req.pause();
+        setTimeout(() => req.resume(), this.faults.slow);
+      }
     });
     await pipeline(req, createWriteStream(file));
     const blob = { path: file, size, sha256: hash.digest('hex') };
@@ -289,6 +297,15 @@ export class Mock {
     if (this.faults.answerDelayMs) await new Promise((r) => setTimeout(r, this.faults.answerDelayMs));
     res.writeHead(200);
     res.end();
+  }
+
+  // Sends a chunk in small pieces with a pause between them: slow but never idle for long.
+  async trickle(res, chunk) {
+    const piece = 128 * 1024;
+    for (let at = 0; at < chunk.length; at += piece) {
+      res.write(chunk.subarray(at, at + piece));
+      await new Promise((r) => setTimeout(r, this.faults.slow));
+    }
   }
 
   // ---- source file server -------------------------------------------------
@@ -320,7 +337,8 @@ export class Mock {
     for await (const chunk of data.stream()) {
       if (fault === 'short' && sent > data.size / 2) return res.destroy();
       sent += chunk.length;
-      if (!res.write(chunk)) await new Promise((r) => res.once('drain', r));
+      if (this.faults.slow) await this.trickle(res, chunk);
+      else if (!res.write(chunk)) await new Promise((r) => res.once('drain', r));
     }
     res.end();
   }

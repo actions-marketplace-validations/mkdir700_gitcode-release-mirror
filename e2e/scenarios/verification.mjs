@@ -42,6 +42,8 @@ export default [
       t.save('receipt', result.receipt);
       assert.equal(result.code, 1);
       assert.match(result.stdout, /out of date/);
+      assert.match(result.receipt.files[0].error, /rejected the request/);
+      assert.doesNotMatch(result.receipt.files[0].error, /repeating is safe/);
       assert.equal(env.mock.requests.length, 0, 'the host did nothing before refusing');
     },
   },
